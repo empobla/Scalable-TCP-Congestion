@@ -93,9 +93,6 @@ def runSimulation(packets = 100, additive_increase = 0.01, multiplicative_decrea
 
     # While there are still packets to be sent
     while (packets > 0):
-        # A timeout can occur, so simulate it with a 5% chance
-        timeout = True if randint(1, 20) == 1 else False
-
         # Select wether to use TCP Congestion Avoidance or Scalable TCP Congestion Avoidance
         # Will always select Scalable TCP Congestion Avoidance for simulation purposes
         use_Scalable_tcp = cwnd > lw_s
@@ -103,24 +100,19 @@ def runSimulation(packets = 100, additive_increase = 0.01, multiplicative_decrea
         if use_Scalable_tcp:
             print(f'\n[SOURCE] Using Scalable TCP for packets {packets}-{(packets - int(cwnd)) if packets >= int(cwnd) else 0} with a low-window threshold of {lw_s}')
 
-            # Timeout procedure
-            # Set the slow start threshold to the reduced cwnd and reset the cwnd to its 
-            # initial value, meaning that Scalable TCP will reenter slow start until 
-            # the cwnd passes the sst and then return to congestion avoidance
-            if timeout:
-                print(f'[SOURCE] Timed Out: Setting Slow Start Threshold to {max(cwnd * b_s, cwnd_int)}')
-                print(f'[SOURCE] Timed Out: Setting Congestion Window to {cwnd_int}')
-                cwnd *= b_s
-                sst = max(cwnd, cwnd_int)
-                cwnd = cwnd_int
-                continue
-
             # Simulate packets received or packet lost
-            ack_received = True if randint(1, 10) <= 2 else False
+            ack_received = None
+            rand_num = randint(1, 10)
+            if rand_num == 1:
+                ack_received = -1
+            elif rand_num == 2:
+                ack_received = 0
+            else:
+                ack_received = 1
             
             # Increase procedure
             # If no packets were lost, increase cwnd by Scalable TCP's fixed value
-            if ack_received: 
+            if ack_received == 1: 
                 print(f'[SOURCE] Successfully sent packets {packets}-{(packets - int(cwnd)) if packets >= int(cwnd) else 0}')
                 print(f'[SOURCE] Increasing congestion window threshold from {round(cwnd, 2)} to {round(cwnd + a_s, 2)}')
                 # Reduce the number of packets to be sent, simulating that packets were sent
@@ -136,7 +128,7 @@ def runSimulation(packets = 100, additive_increase = 0.01, multiplicative_decrea
             # 
             # In order to simulate ONLY Scalable TCP, cwnd must not go under the low-window 
             # threshold.
-            if not ack_received: 
+            if ack_received == 0: 
                 print(f'[SOURCE] Packet loss recieved on packets {packets}-{(packets - int(cwnd)) if packets >= int(cwnd) else 0}')
                 
                 if cwnd * b_s < lw_s:
@@ -148,6 +140,18 @@ def runSimulation(packets = 100, additive_increase = 0.01, multiplicative_decrea
                 print(f'[SOURCE] Setting slow start threshold to {round(cwnd * b_s, 2)}')
                 cwnd *= b_s
                 sst = cwnd
+                continue
+            
+            # Timeout procedure
+            # Set the slow start threshold to the reduced cwnd and reset the cwnd to its 
+            # initial value, meaning that Scalable TCP will reenter slow start until 
+            # the cwnd passes the sst and then return to congestion avoidance
+            if ack_received == -1:
+                print(f'[SOURCE] Timed Out: Setting Slow Start Threshold to {max(cwnd * b_s, cwnd_int)}')
+                print(f'[SOURCE] Timed Out: Setting Congestion Window to {cwnd_int}')
+                cwnd *= b_s
+                sst = max(cwnd, cwnd_int)
+                cwnd = cwnd_int
                 continue
                     
 if __name__ == '__main__':  
